@@ -160,8 +160,6 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-      "react": (() => { try { return fs.realpathSync(path.resolve(import.meta.dirname, "node_modules", "react")); } catch { return path.resolve(import.meta.dirname, "node_modules", "react"); } })(),
-      "react-dom": (() => { try { return fs.realpathSync(path.resolve(import.meta.dirname, "node_modules", "react-dom")); } catch { return path.resolve(import.meta.dirname, "node_modules", "react-dom"); } })(),
     },
     dedupe: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
   },
