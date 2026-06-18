@@ -1,17 +1,17 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  int,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  timestamp,
+  varchar,
+  boolean,
+  datetime,
+} from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
+// ─── Users (Auth) ────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -25,4 +25,114 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// ─── Networks (Redes) ─────────────────────────────────────────────────────────
+export const networks = mysqlTable("networks", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 20 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Network = typeof networks.$inferSelect;
+
+// ─── Ministries (Ministérios) ─────────────────────────────────────────────────
+export const ministries = mysqlTable("ministries", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 20 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Ministry = typeof ministries.$inferSelect;
+
+// ─── Volunteers (Voluntários) ─────────────────────────────────────────────────
+export const volunteers = mysqlTable("volunteers", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").references(() => users.id),
+  name: varchar("name", { length: 150 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 30 }),
+  photoUrl: text("photoUrl"),
+  networkId: int("networkId").references(() => networks.id),
+  ministryId: int("ministryId").references(() => ministries.id),
+  role: varchar("role", { length: 100 }),
+  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Volunteer = typeof volunteers.$inferSelect;
+export type InsertVolunteer = typeof volunteers.$inferInsert;
+
+// ─── Events (Eventos) ─────────────────────────────────────────────────────────
+export const events = mysqlTable("events", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  location: varchar("location", { length: 200 }),
+  startAt: datetime("startAt").notNull(),
+  endAt: datetime("endAt"),
+  type: varchar("type", { length: 100 }),
+  status: mysqlEnum("status", ["upcoming", "ongoing", "completed", "cancelled"]).default("upcoming").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = typeof events.$inferInsert;
+
+// ─── Schedules (Escalas) ──────────────────────────────────────────────────────
+export const schedules = mysqlTable("schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: int("eventId").references(() => events.id).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  date: datetime("date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Schedule = typeof schedules.$inferSelect;
+export type InsertSchedule = typeof schedules.$inferInsert;
+
+// ─── Schedule Assignments (Voluntários na Escala) ─────────────────────────────
+export const scheduleAssignments = mysqlTable("schedule_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  scheduleId: int("scheduleId").references(() => schedules.id).notNull(),
+  volunteerId: int("volunteerId").references(() => volunteers.id).notNull(),
+  role: varchar("role", { length: 100 }),
+  confirmed: boolean("confirmed").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScheduleAssignment = typeof scheduleAssignments.$inferSelect;
+
+// ─── Check-ins ────────────────────────────────────────────────────────────────
+export const checkins = mysqlTable("checkins", {
+  id: int("id").autoincrement().primaryKey(),
+  volunteerId: int("volunteerId").references(() => volunteers.id).notNull(),
+  eventId: int("eventId").references(() => events.id).notNull(),
+  checkinAt: datetime("checkinAt"),
+  checkoutAt: datetime("checkoutAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Checkin = typeof checkins.$inferSelect;
+export type InsertCheckin = typeof checkins.$inferInsert;
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+export const notifications = mysqlTable("notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  volunteerId: int("volunteerId").references(() => volunteers.id),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  type: mysqlEnum("type", ["schedule", "event", "general", "checkin"]).default("general").notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
