@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { ClipboardList, Plus, UserPlus, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Plus, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -45,6 +45,16 @@ export default function Schedules() {
   );
   const { data: volunteers } = trpc.volunteers.list.useQuery({});
 
+  // Conflict detection queries
+  const { data: conflictData } = trpc.scheduleConflicts.check.useQuery(
+    { scheduleId: selectedScheduleId!, volunteerId: Number(assignForm.volunteerId) },
+    { enabled: !!selectedScheduleId && !!assignForm.volunteerId && assignDialogOpen }
+  );
+  const { data: alreadyAssignedData } = trpc.scheduleConflicts.alreadyAssigned.useQuery(
+    { scheduleId: selectedScheduleId!, volunteerId: Number(assignForm.volunteerId) },
+    { enabled: !!selectedScheduleId && !!assignForm.volunteerId && assignDialogOpen }
+  );
+
   const createScheduleMutation = trpc.schedules.create.useMutation({
     onSuccess: () => {
       utils.schedules.byEvent.invalidate();
@@ -69,6 +79,9 @@ export default function Schedules() {
     onSuccess: () => { utils.schedules.assignments.invalidate(); toast.success("Voluntário removido."); },
     onError: (e) => toast.error(e.message),
   });
+
+  const hasConflict = conflictData && conflictData.length > 0;
+  const isAlreadyAssigned = alreadyAssignedData === true;
 
   return (
     <AppLayout>
@@ -169,7 +182,10 @@ export default function Schedules() {
                 <>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-semibold text-foreground">Voluntários na Escala</h2>
-                    <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+                    <Dialog open={assignDialogOpen} onOpenChange={(open) => {
+                      setAssignDialogOpen(open);
+                      if (!open) setAssignForm({ volunteerId: "", role: "" });
+                    }}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="outline" className="gap-2"><UserPlus className="w-3 h-3" />Adicionar</Button>
                       </DialogTrigger>
@@ -178,25 +194,69 @@ export default function Schedules() {
                         <div className="space-y-4 pt-2">
                           <div>
                             <Label>Voluntário *</Label>
-                            <Select value={assignForm.volunteerId} onValueChange={(v) => setAssignForm({ ...assignForm, volunteerId: v })}>
+                            <Select
+                              value={assignForm.volunteerId}
+                              onValueChange={(v) => setAssignForm({ ...assignForm, volunteerId: v })}
+                            >
                               <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                               <SelectContent>
                                 {volunteers?.filter((v) => v.volunteer.status === "active").map(({ volunteer }) => (
-                                  <SelectItem key={volunteer.id} value={String(volunteer.id)}>{volunteer.name}</SelectItem>
+                                  <SelectItem key={volunteer.id} value={String(volunteer.id)}>
+                                    {volunteer.name}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
+
+                          {/* Conflict warnings */}
+                          {assignForm.volunteerId && isAlreadyAssigned && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
+                              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                              <span>Este voluntário já está nesta escala.</span>
+                            </div>
+                          )}
+                          {assignForm.volunteerId && !isAlreadyAssigned && hasConflict && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className="font-semibold mb-1">Atenção: conflito de escala detectado</p>
+                                {conflictData?.map((c, i) => (
+                                  <p key={i}>• Já escalado em "{c.schedule?.title ?? "outra escala"}" no mesmo período</p>
+                                ))}
+                                <p className="mt-1 text-amber-700">Você pode adicionar mesmo assim, mas verifique com o voluntário.</p>
+                              </div>
+                            </div>
+                          )}
+                          {assignForm.volunteerId && !isAlreadyAssigned && !hasConflict && conflictData !== undefined && (
+                            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                              <span>Sem conflitos de escala para este voluntário.</span>
+                            </div>
+                          )}
+
                           <div>
                             <Label>Função na Escala</Label>
-                            <Input placeholder="Ex: Vocal, Guitarra..." value={assignForm.role} onChange={(e) => setAssignForm({ ...assignForm, role: e.target.value })} className="mt-1" />
+                            <Input
+                              placeholder="Ex: Vocal, Guitarra, Câmera..."
+                              value={assignForm.role}
+                              onChange={(e) => setAssignForm({ ...assignForm, role: e.target.value })}
+                              className="mt-1"
+                            />
                           </div>
-                          <Button className="w-full" disabled={assignMutation.isPending}
+                          <Button
+                            className="w-full"
+                            disabled={assignMutation.isPending || isAlreadyAssigned}
                             onClick={() => {
                               if (!assignForm.volunteerId) return toast.error("Selecione um voluntário");
-                              assignMutation.mutate({ scheduleId: selectedScheduleId, volunteerId: Number(assignForm.volunteerId), role: assignForm.role || undefined });
-                            }}>
-                            {assignMutation.isPending ? "Adicionando..." : "Adicionar"}
+                              assignMutation.mutate({
+                                scheduleId: selectedScheduleId,
+                                volunteerId: Number(assignForm.volunteerId),
+                                role: assignForm.role || undefined
+                              });
+                            }}
+                          >
+                            {assignMutation.isPending ? "Adicionando..." : isAlreadyAssigned ? "Já na escala" : "Adicionar"}
                           </Button>
                         </div>
                       </DialogContent>
@@ -216,7 +276,11 @@ export default function Schedules() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground">{volunteer?.name}</p>
-                            {assignment.role && <p className="text-xs text-muted-foreground">{assignment.role}</p>}
+                            {assignment.role && (
+                              <Badge variant="outline" className="text-xs mt-0.5 bg-primary/5 text-primary border-primary/20">
+                                {assignment.role}
+                              </Badge>
+                            )}
                           </div>
                           <Button
                             variant="ghost"

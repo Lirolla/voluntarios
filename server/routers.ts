@@ -2,11 +2,14 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   assignVolunteerToSchedule,
+  checkVolunteerAlreadyAssigned,
   createCheckin,
+  createCheckinWithGPS,
   createEvent,
   createMinistry,
   createNetwork,
   createNotification,
+  createSatisfactionRating,
   createSchedule,
   createVolunteer,
   deleteEvent,
@@ -14,6 +17,8 @@ import {
   deleteNetwork,
   deleteVolunteer,
   getActiveCheckin,
+  getActiveCheckinsForEvent,
+  getAllActiveCheckins,
   getCheckinsByEvent,
   getCheckinsByVolunteer,
   getDashboardStats,
@@ -25,17 +30,23 @@ import {
   getNetworks,
   getNotifications,
   getPresenceReport,
+  getSatisfactionAvgByEvent,
+  getSatisfactionByEvent,
   getScheduleAssignments,
   getScheduleById,
   getSchedulesByEvent,
+  getScheduleWithConflictInfo,
   getVolunteerByUserId,
   getVolunteerById,
+  getVolunteerSatisfactionForEvent,
+  getVolunteerScheduleConflicts,
   getVolunteerSchedules,
   getVolunteers,
   markAllNotificationsRead,
   markNotificationRead,
   removeVolunteerFromSchedule,
   updateCheckin,
+  updateCheckinWithGPS,
   updateEvent,
   updateMinistry,
   updateNetwork,
@@ -229,19 +240,29 @@ export const appRouter = router({
   }),
 
   // ─── Check-ins ──────────────────────────────────────────────────────────────
-  checkins: router({
+    checkins: router({
     byEvent: adminProcedure
       .input(z.object({ eventId: z.number() }))
       .query(({ input }) => getCheckinsByEvent(input.eventId)),
-
+    // Monitoramento em tempo real: todos os check-ins ativos agora
+    liveMonitor: adminProcedure.query(() => getAllActiveCheckins()),
+    // Presenças ativas por evento
+    activeByEvent: adminProcedure
+      .input(z.object({ eventId: z.number() }))
+      .query(({ input }) => getActiveCheckinsForEvent(input.eventId)),
     myHistory: protectedProcedure.query(async ({ ctx }) => {
       const vol = await getVolunteerByUserId(ctx.user.id);
       if (!vol) return [];
       return getCheckinsByVolunteer(vol.volunteer.id);
     }),
-
     checkin: protectedProcedure
-      .input(z.object({ eventId: z.number(), volunteerId: z.number().optional() }))
+      .input(z.object({
+        eventId: z.number(),
+        volunteerId: z.number().optional(),
+        lat: z.string().optional(),
+        lng: z.string().optional(),
+        address: z.string().optional(),
+      }))
       .mutation(async ({ input, ctx }) => {
         let volunteerId = input.volunteerId;
         if (!volunteerId) {
@@ -251,12 +272,23 @@ export const appRouter = router({
         }
         const existing = await getActiveCheckin(volunteerId, input.eventId);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Check-in já realizado para este evento." });
-        await createCheckin({ volunteerId, eventId: input.eventId, checkinAt: new Date() });
+        await createCheckinWithGPS({
+          volunteerId,
+          eventId: input.eventId,
+          checkinAt: new Date(),
+          checkinLat: input.lat,
+          checkinLng: input.lng,
+          checkinAddress: input.address,
+        });
         return { success: true };
       }),
-
     checkout: protectedProcedure
-      .input(z.object({ eventId: z.number(), volunteerId: z.number().optional() }))
+      .input(z.object({
+        eventId: z.number(),
+        volunteerId: z.number().optional(),
+        lat: z.string().optional(),
+        lng: z.string().optional(),
+      }))
       .mutation(async ({ input, ctx }) => {
         let volunteerId = input.volunteerId;
         if (!volunteerId) {
@@ -266,9 +298,54 @@ export const appRouter = router({
         }
         const existing = await getActiveCheckin(volunteerId, input.eventId);
         if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum check-in ativo encontrado." });
-        await updateCheckin(existing.id, { checkoutAt: new Date() });
+        await updateCheckinWithGPS(existing.id, {
+          checkoutAt: new Date(),
+          checkoutLat: input.lat,
+          checkoutLng: input.lng,
+        });
+        return { success: true, checkinId: existing.id };
+      }),
+  }),
+  // ─── Satisfaction ────────────────────────────────────────────────────────────
+  satisfaction: router({
+    submit: protectedProcedure
+      .input(z.object({
+        eventId: z.number(),
+        checkinId: z.number().optional(),
+        rating: z.number().min(1).max(5),
+        comment: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const vol = await getVolunteerByUserId(ctx.user.id);
+        if (!vol) throw new TRPCError({ code: "NOT_FOUND", message: "Voluntário não encontrado." });
+        const existing = await getVolunteerSatisfactionForEvent(vol.volunteer.id, input.eventId);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "Avaliação já enviada para este evento." });
+        await createSatisfactionRating({ ...input, volunteerId: vol.volunteer.id });
         return { success: true };
       }),
+    byEvent: adminProcedure
+      .input(z.object({ eventId: z.number() }))
+      .query(({ input }) => getSatisfactionByEvent(input.eventId)),
+    avgByEvent: adminProcedure.query(() => getSatisfactionAvgByEvent()),
+    myRating: protectedProcedure
+      .input(z.object({ eventId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const vol = await getVolunteerByUserId(ctx.user.id);
+        if (!vol) return null;
+        return getVolunteerSatisfactionForEvent(vol.volunteer.id, input.eventId);
+      }),
+  }),
+  // ─── Schedule Conflicts ───────────────────────────────────────────────────────
+  scheduleConflicts: router({
+    check: adminProcedure
+      .input(z.object({ scheduleId: z.number(), volunteerId: z.number() }))
+      .query(({ input }) => getVolunteerScheduleConflicts(input.volunteerId, input.scheduleId)),
+    alreadyAssigned: adminProcedure
+      .input(z.object({ scheduleId: z.number(), volunteerId: z.number() }))
+      .query(({ input }) => checkVolunteerAlreadyAssigned(input.scheduleId, input.volunteerId)),
+    withConflictInfo: adminProcedure
+      .input(z.object({ scheduleId: z.number() }))
+      .query(({ input }) => getScheduleWithConflictInfo(input.scheduleId)),
   }),
 
   // ─── Notifications ──────────────────────────────────────────────────────────

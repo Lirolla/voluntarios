@@ -12,6 +12,7 @@ import {
   ministries,
   networks,
   notifications,
+  satisfactionRatings,
   scheduleAssignments,
   schedules,
   users,
@@ -430,4 +431,149 @@ export async function getDashboardStats() {
     totalCheckins: Number(ciCount?.count ?? 0),
     upcomingEvents: Number(upCount?.count ?? 0),
   };
+}
+
+// ─── GPS & Satisfaction ───────────────────────────────────────────────────────
+export async function createCheckinWithGPS(data: InsertCheckin & {
+  checkinLat?: string; checkinLng?: string; checkinAddress?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(checkins).values(data);
+}
+
+export async function updateCheckinWithGPS(id: number, data: Partial<InsertCheckin> & {
+  checkoutLat?: string; checkoutLng?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(checkins).set(data).where(eq(checkins.id, id));
+}
+
+export async function getActiveCheckinsForEvent(eventId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ checkin: checkins, volunteer: volunteers })
+    .from(checkins)
+    .leftJoin(volunteers, eq(checkins.volunteerId, volunteers.id))
+    .where(and(eq(checkins.eventId, eventId), isNull(checkins.checkoutAt)))
+    .orderBy(desc(checkins.checkinAt));
+}
+
+export async function getAllActiveCheckins() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ checkin: checkins, volunteer: volunteers, event: events })
+    .from(checkins)
+    .leftJoin(volunteers, eq(checkins.volunteerId, volunteers.id))
+    .leftJoin(events, eq(checkins.eventId, events.id))
+    .where(isNull(checkins.checkoutAt))
+    .orderBy(desc(checkins.checkinAt));
+}
+
+// ─── Satisfaction Ratings ─────────────────────────────────────────────────────
+export async function createSatisfactionRating(data: {
+  volunteerId: number; eventId: number; checkinId?: number; rating: number; comment?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(satisfactionRatings).values(data);
+}
+
+export async function getSatisfactionByEvent(eventId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ rating: satisfactionRatings, volunteer: volunteers })
+    .from(satisfactionRatings)
+    .leftJoin(volunteers, eq(satisfactionRatings.volunteerId, volunteers.id))
+    .where(eq(satisfactionRatings.eventId, eventId))
+    .orderBy(desc(satisfactionRatings.createdAt));
+}
+
+export async function getSatisfactionAvgByEvent() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      eventId: satisfactionRatings.eventId,
+      eventName: events.name,
+      avgRating: sql<number>`ROUND(AVG(${satisfactionRatings.rating}), 2)`,
+      totalRatings: sql<number>`COUNT(${satisfactionRatings.id})`,
+    })
+    .from(satisfactionRatings)
+    .leftJoin(events, eq(satisfactionRatings.eventId, events.id))
+    .groupBy(satisfactionRatings.eventId, events.name)
+    .orderBy(desc(sql`AVG(${satisfactionRatings.rating})`));
+}
+
+export async function getVolunteerSatisfactionForEvent(volunteerId: number, eventId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db
+    .select()
+    .from(satisfactionRatings)
+    .where(and(eq(satisfactionRatings.volunteerId, volunteerId), eq(satisfactionRatings.eventId, eventId)))
+    .limit(1);
+  return rows[0] ?? undefined;
+}
+
+// ─── Schedule Conflict Detection ──────────────────────────────────────────────
+export async function getVolunteerScheduleConflicts(volunteerId: number, scheduleId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get the target schedule's date/event
+  const targetRows = await db
+    .select({ schedule: schedules, event: events })
+    .from(schedules)
+    .leftJoin(events, eq(schedules.eventId, events.id))
+    .where(eq(schedules.id, scheduleId))
+    .limit(1);
+  if (!targetRows[0]) return [];
+  const target = targetRows[0];
+
+  // Find all other schedules this volunteer is assigned to on the same date
+  const conflictRows = await db
+    .select({ assignment: scheduleAssignments, schedule: schedules, event: events })
+    .from(scheduleAssignments)
+    .leftJoin(schedules, eq(scheduleAssignments.scheduleId, schedules.id))
+    .leftJoin(events, eq(schedules.eventId, events.id))
+    .where(
+      and(
+        eq(scheduleAssignments.volunteerId, volunteerId),
+        sql`DATE(${schedules.date}) = DATE(${target.schedule.date})`,
+        sql`${scheduleAssignments.scheduleId} != ${scheduleId}`
+      )
+    );
+  return conflictRows;
+}
+
+export async function checkVolunteerAlreadyAssigned(scheduleId: number, volunteerId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select()
+    .from(scheduleAssignments)
+    .where(and(eq(scheduleAssignments.scheduleId, scheduleId), eq(scheduleAssignments.volunteerId, volunteerId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function getScheduleWithConflictInfo(scheduleId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ assignment: scheduleAssignments, volunteer: volunteers })
+    .from(scheduleAssignments)
+    .leftJoin(volunteers, eq(scheduleAssignments.volunteerId, volunteers.id))
+    .where(eq(scheduleAssignments.scheduleId, scheduleId));
+
+  // For each assignment, check conflicts
+  const withConflicts = await Promise.all(rows.map(async (row) => {
+    const conflicts = await getVolunteerScheduleConflicts(row.assignment.volunteerId, scheduleId);
+    return { ...row, hasConflict: conflicts.length > 0, conflicts };
+  }));
+  return withConflicts;
 }

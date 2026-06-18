@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import {
+  Activity,
   Bell,
   BookOpen,
   Building2,
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { label: "Eventos", href: "/events", icon: CalendarDays, adminOnly: true },
   { label: "Escalas", href: "/schedules", icon: ClipboardList, adminOnly: true },
   { label: "Check-in", href: "/checkins", icon: CalendarCheck },
+  { label: "Monitor ao Vivo", href: "/live-monitor", icon: Activity, adminOnly: true },
   { label: "Notificações", href: "/notifications", icon: Bell },
   { label: "Relatórios", href: "/reports", icon: BookOpen, adminOnly: true },
 ];

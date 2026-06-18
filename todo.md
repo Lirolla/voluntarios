@@ -44,3 +44,19 @@
 - [x] Testes Vitest para routers principais (8 testes passando)
 - [x] Revisão visual e responsividade
 - [x] Checkpoint final
+
+## Fase 6: GPS, Satisfação, Conflitos e Monitoramento
+- [ ] Schema: adicionar campos GPS (lat/lng) na tabela checkins
+- [ ] Schema: criar tabela satisfaction_ratings (avaliação pós-evento)
+- [ ] Migração SQL aplicada
+- [ ] Backend: check-in recebe e armazena coordenadas GPS
+- [ ] Backend: check-out dispara prompt de avaliação de satisfação
+- [ ] Backend: router satisfaction (criar, listar, média por evento)
+- [ ] Backend: detecção de conflito na escala (mesmo voluntário em horários sobrepostos)
+- [ ] Backend: endpoint de monitoramento em tempo real (quem está presente agora)
+- [ ] Frontend: check-in captura GPS do navegador
+- [ ] Frontend: modal de satisfação após check-out (estrelas + comentário)
+- [ ] Frontend: escala exibe alerta visual de conflito
+- [ ] Frontend: painel admin com mapa GPS das presenças ativas
+- [ ] Frontend: painel admin com satisfação média por evento
+- [ ] Frontend: painel admin com monitoramento ao vivo (quem está presente agora)

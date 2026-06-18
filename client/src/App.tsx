@@ -17,6 +17,7 @@ import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
 import MyProfile from "./pages/MyProfile";
 import MySchedule from "./pages/MySchedule";
+import LiveMonitor from "./pages/LiveMonitor";
 
 function Router() {
   return (
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/events" component={Events} />
       <Route path="/schedules" component={Schedules} />
       <Route path="/checkins" component={Checkins} />
+      <Route path="/live-monitor" component={LiveMonitor} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/reports" component={Reports} />
       <Route path="/my-profile" component={MyProfile} />

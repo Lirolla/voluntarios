@@ -116,12 +116,30 @@ export const checkins = mysqlTable("checkins", {
   eventId: int("eventId").references(() => events.id).notNull(),
   checkinAt: datetime("checkinAt"),
   checkoutAt: datetime("checkoutAt"),
+  // GPS tracking
+  checkinLat: varchar("checkinLat", { length: 30 }),
+  checkinLng: varchar("checkinLng", { length: 30 }),
+  checkoutLat: varchar("checkoutLat", { length: 30 }),
+  checkoutLng: varchar("checkoutLng", { length: 30 }),
+  checkinAddress: varchar("checkinAddress", { length: 300 }),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type Checkin = typeof checkins.$inferSelect;
 export type InsertCheckin = typeof checkins.$inferInsert;
+
+// ─── Satisfaction Ratings (Avaliação de Satisfação) ──────────────────────────
+export const satisfactionRatings = mysqlTable("satisfaction_ratings", {
+  id: int("id").autoincrement().primaryKey(),
+  volunteerId: int("volunteerId").references(() => volunteers.id).notNull(),
+  eventId: int("eventId").references(() => events.id).notNull(),
+  checkinId: int("checkinId").references(() => checkins.id),
+  rating: int("rating").notNull(), // 1-5 estrelas
+  comment: text("comment"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type SatisfactionRating = typeof satisfactionRatings.$inferSelect;
+export type InsertSatisfactionRating = typeof satisfactionRatings.$inferInsert;
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 export const notifications = mysqlTable("notifications", {
