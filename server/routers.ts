@@ -62,10 +62,13 @@ import {
 } from "./db";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
+import bcrypt from "bcryptjs";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { getUserByLocalCredentialEmail } from "./db";
+import { sdk } from "./_core/sdk";
 
 // Admin guard middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -85,6 +88,26 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    localLogin: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const record = await getUserByLocalCredentialEmail(input.email);
+        if (!record) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos." });
+        }
+        const valid = await bcrypt.compare(input.password, record.cred.passwordHash);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos." });
+        }
+        // Create a session token using the existing SDK (same mechanism as OAuth)
+        const sessionToken = await sdk.createSessionToken(record.user.openId, { name: record.user.name ?? "" });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...cookieOptions,
+          maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
+        });
+        return { success: true, user: record.user };
+      }),
   }),
 
   // ─── Networks ───────────────────────────────────────────────────────────────

@@ -177,3 +177,15 @@ export const eventQrTokens = mysqlTable("event_qr_tokens", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type EventQrToken = typeof eventQrTokens.$inferSelect;
+
+// ─── Local Credentials (Login Independente) ───────────────────────────────────
+export const localCredentials = mysqlTable("local_credentials", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  userId: int("userId").references(() => users.id).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type LocalCredential = typeof localCredentials.$inferSelect;
+export type InsertLocalCredential = typeof localCredentials.$inferInsert;

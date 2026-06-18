@@ -85,3 +85,13 @@
 - [x] Frontend: mural de avisos (admin posta, voluntário lê)
 - [x] Frontend: widget de aniversariantes no dashboard admin
 - [x] Backend: query de aniversariantes da semana
+
+## Fase 11: Login Independente (e-mail/senha)
+- [ ] Tabela local_credentials no banco (email, passwordHash)
+- [ ] Seed do admin: contato@lirolla.com / Pagotto24
+- [ ] Router de login com e-mail e senha (bcrypt + JWT)
+- [ ] Router de logout e me (sessão própria)
+- [ ] Tela de login própria (sem OAuth Manus)
+- [ ] Proteger rotas com sessão local
+- [ ] Remover dependência do OAuth Manus do fluxo principal
+- [ ] Testes de autenticação local

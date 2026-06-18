@@ -20,6 +20,7 @@ import {
   volunteers,
   bulletinPosts,
   eventQrTokens,
+  localCredentials,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -685,4 +686,28 @@ export async function getBirthdayVolunteers() {
     )
     .orderBy(sql`DAYOFYEAR(birthdate)`);
   return rows;
+}
+
+// ─── Local Auth Helpers ───────────────────────────────────────────────────────
+export async function getLocalCredentialByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(localCredentials)
+    .where(eq(localCredentials.email, email.toLowerCase().trim()))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getUserByLocalCredentialEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ user: users, cred: localCredentials })
+    .from(localCredentials)
+    .innerJoin(users, eq(users.id, localCredentials.userId))
+    .where(eq(localCredentials.email, email.toLowerCase().trim()))
+    .limit(1);
+  return rows[0] ?? null;
 }

@@ -164,7 +164,7 @@ export default defineConfig({
     dedupe: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
+    include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@trpc/react-query", "@trpc/client"],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
