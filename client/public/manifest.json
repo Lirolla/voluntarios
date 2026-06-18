@@ -9,13 +9,13 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663028974412/EDAtuQ23HMMMxmNxrf3NnJ/pwa-icon-192-92HGg8UzP8BtvFC4KP7QVe.webp",
+      "src": "/manus-storage/pwa-icon-192_029ce58b.png",
       "sizes": "192x192",
-      "type": "image/webp",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310419663028974412/EDAtuQ23HMMMxmNxrf3NnJ/pwa-icon-512-8ZP8ftACu5szrjhw38XGAD.png",
+      "src": "/manus-storage/pwa-icon-512_e68067bc.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

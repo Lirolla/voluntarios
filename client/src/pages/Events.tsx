@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { CalendarDays, MapPin, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, MapPin, Plus, QrCode, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -39,11 +39,93 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   cancelled: { label: "Cancelado", className: "bg-red-100 text-red-600 border-red-200" },
 };
 
+function QRCodeModal({ eventId, eventName, open, onClose }: { eventId: number; eventName: string; open: boolean; onClose: () => void }) {
+  const { data: existing, isLoading: loadingGet, refetch } = trpc.qrcode.get.useQuery(
+    { eventId },
+    { enabled: open && !!eventId }
+  );
+  const generateMutation = trpc.qrcode.generate.useMutation({
+    onSuccess: () => refetch(),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const qrDataUrl = existing?.qrDataUrl;
+  const token = existing?.token;
+  const checkinUrl = token ? `${window.location.origin}/qr-checkin?qr=${token}` : null;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="w-5 h-5 text-primary" />
+            QR Code — {eventName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-4">
+          {loadingGet ? (
+            <Skeleton className="w-48 h-48 rounded-xl" />
+          ) : qrDataUrl ? (
+            <>
+              <img
+                src={qrDataUrl}
+                alt="QR Code do evento"
+                className="w-48 h-48 rounded-xl border border-border shadow-sm"
+              />
+              <p className="text-xs text-muted-foreground text-center px-4">
+                Voluntários escaneiam este QR Code para fazer check-in no evento
+              </p>
+              {checkinUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-xs"
+                  onClick={() => {
+                    navigator.clipboard.writeText(checkinUrl);
+                    toast.success("Link copiado!");
+                  }}
+                >
+                  Copiar link de check-in
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={() => generateMutation.mutate({ eventId })}
+                disabled={generateMutation.isPending}
+              >
+                {generateMutation.isPending ? "Gerando..." : "Gerar novo QR Code"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="w-48 h-48 rounded-xl border-2 border-dashed border-border flex items-center justify-center">
+                <QrCode className="w-16 h-16 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">Nenhum QR Code gerado ainda</p>
+              <Button
+                onClick={() => generateMutation.mutate({ eventId })}
+                disabled={generateMutation.isPending}
+                className="gap-2"
+              >
+                <QrCode className="w-4 h-4" />
+                {generateMutation.isPending ? "Gerando..." : "Gerar QR Code"}
+              </Button>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Events() {
   const { user, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [qrEvent, setQrEvent] = useState<{ id: number; name: string } | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", location: "", startAt: "", endAt: "", type: "", status: "upcoming" as const,
   });
@@ -53,6 +135,7 @@ export default function Events() {
     if (!authLoading && user?.role !== "admin") navigate("/dashboard");
   }, [user, authLoading]);
 
+  const isAdmin = user?.role === "admin";
   const utils = trpc.useUtils();
   const { data: events, isLoading } = trpc.events.list.useQuery({});
   const createMutation = trpc.events.create.useMutation({
@@ -207,14 +290,27 @@ export default function Events() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={() => deleteMutation.mutate({ id: event.id })}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-8 h-8 text-muted-foreground hover:text-primary"
+                            title="QR Code do evento"
+                            onClick={() => setQrEvent({ id: event.id, name: event.name })}
+                          >
+                            <QrCode className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-8 h-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteMutation.mutate({ id: event.id })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -223,6 +319,16 @@ export default function Events() {
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      {qrEvent && (
+        <QRCodeModal
+          eventId={qrEvent.id}
+          eventName={qrEvent.name}
+          open={!!qrEvent}
+          onClose={() => setQrEvent(null)}
+        />
+      )}
     </AppLayout>
   );
 }

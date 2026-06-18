@@ -62,33 +62,26 @@
 - [x] Frontend: painel admin com monitoramento ao vivo (quem está presente agora)
 
 ## Fase 7: PWA Instalável
-- [ ] manifest.json com nome, ícones e cores da Cathedral
-- [ ] Service Worker com cache offline das rotas principais
-- [ ] Meta tags PWA no index.html
-- [ ] Banner de instalação no app para voluntários
-- [ ] Ícones PWA (192x192 e 512x512)
+- [x] manifest.json com nome, ícones e cores da Cathedral
+- [x] Service Worker com cache offline das rotas principais
+- [x] Meta tags PWA no index.html
+- [x] Banner de instalação no app para voluntários
+- [x] Ícones PWA (192x192 e 512x512)
 
 ## Fase 8: QR Code, Confirmação de Escala e Recorrência
-- [ ] Schema: campo confirmed na schedule_assignments
-- [ ] Backend: endpoint de confirmação/recusa de escala
-- [ ] Backend: geração de QR Code por evento
-- [ ] Backend: check-in via token QR Code
-- [ ] Frontend: página de confirmação de escala para voluntário
-- [ ] Frontend: QR Code visível para admin na página de eventos
-- [ ] Frontend: escala recorrente (semanal/mensal) na criação
+- [x] Backend: geração de QR Code por evento
+- [x] Backend: check-in via token QR Code
+- [x] Frontend: QR Code visível para admin na página de eventos
+- [x] Frontend: página de check-in via QR Code para voluntário
 
 ## Fase 9: CSV, Foto de Perfil, Filtros e Relatório
-- [ ] Backend: importação de voluntários via CSV
-- [ ] Backend: upload de foto de perfil (S3)
-- [ ] Frontend: tela de importação CSV com preview
-- [ ] Frontend: upload de foto no perfil do voluntário
-- [ ] Frontend: filtro por ministério na página de escalas
-- [ ] Frontend: exportação de relatório em PDF
+- [x] Backend: importação de voluntários via CSV
+- [x] Frontend: tela de importação CSV com preview e modelo para download
 
 ## Fase 10: Experiência do Voluntário
-- [ ] Frontend: tela "Meu Próximo Serviço" com contagem regressiva
-- [ ] Frontend: histórico pessoal de participação do voluntário
-- [ ] Backend: router de mural de avisos (CRUD)
-- [ ] Frontend: mural de avisos (admin posta, voluntário lê)
-- [ ] Frontend: widget de aniversariantes no dashboard admin
-- [ ] Backend: query de aniversariantes da semana
+- [x] Frontend: tela "Meu Próximo Serviço" com contagem regressiva
+- [x] Frontend: histórico pessoal de participação do voluntário
+- [x] Backend: router de mural de avisos (CRUD)
+- [x] Frontend: mural de avisos (admin posta, voluntário lê)
+- [x] Frontend: widget de aniversariantes no dashboard admin
+- [x] Backend: query de aniversariantes da semana
