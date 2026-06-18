@@ -534,7 +534,8 @@ export async function getVolunteerScheduleConflicts(volunteerId: number, schedul
   if (!targetRows[0]) return [];
   const target = targetRows[0];
 
-  // Find all other schedules this volunteer is assigned to on the same date
+  // Find all other schedules this volunteer is assigned to within 2 hours of the target schedule
+  const targetDate = target.schedule.date;
   const conflictRows = await db
     .select({ assignment: scheduleAssignments, schedule: schedules, event: events })
     .from(scheduleAssignments)
@@ -543,7 +544,7 @@ export async function getVolunteerScheduleConflicts(volunteerId: number, schedul
     .where(
       and(
         eq(scheduleAssignments.volunteerId, volunteerId),
-        sql`DATE(${schedules.date}) = DATE(${target.schedule.date})`,
+        sql`ABS(TIMESTAMPDIFF(MINUTE, ${schedules.date}, ${targetDate})) < 120`,
         sql`${scheduleAssignments.scheduleId} != ${scheduleId}`
       )
     );
