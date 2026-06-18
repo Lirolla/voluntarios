@@ -7,6 +7,7 @@ import {
   InsertSchedule,
   InsertUser,
   InsertVolunteer,
+  InsertBulletinPost,
   checkins,
   events,
   ministries,
@@ -17,6 +18,8 @@ import {
   schedules,
   users,
   volunteers,
+  bulletinPosts,
+  eventQrTokens,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -577,4 +580,109 @@ export async function getScheduleWithConflictInfo(scheduleId: number) {
     return { ...row, hasConflict: conflicts.length > 0, conflicts };
   }));
   return withConflicts;
+}
+
+// ─── Bulletin Posts ───────────────────────────────────────────────────────────
+export async function getBulletinPosts(audience?: "all" | "admin") {
+  const db = await getDb();
+  if (!db) return [];
+  const query = db.select().from(bulletinPosts).orderBy(desc(bulletinPosts.createdAt));
+  return query;
+}
+
+export async function createBulletinPost(data: InsertBulletinPost) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(bulletinPosts).values(data);
+}
+
+export async function deleteBulletinPost(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(bulletinPosts).where(eq(bulletinPosts.id, id));
+}
+
+// ─── QR Code Tokens ───────────────────────────────────────────────────────────
+export async function createQrToken(eventId: number, token: string, expiresAt?: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  // Remove old tokens for this event
+  await db.delete(eventQrTokens).where(eq(eventQrTokens.eventId, eventId));
+  await db.insert(eventQrTokens).values({ eventId, token, expiresAt: expiresAt ?? null });
+}
+
+export async function getQrTokenByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ qr: eventQrTokens, event: events })
+    .from(eventQrTokens)
+    .leftJoin(events, eq(eventQrTokens.eventId, events.id))
+    .where(eq(eventQrTokens.token, token))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getQrTokenByEvent(eventId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(eventQrTokens)
+    .where(eq(eventQrTokens.eventId, eventId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// ─── Volunteer Personal History ───────────────────────────────────────────────
+export async function getVolunteerPersonalHistory(volunteerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get all schedule assignments for this volunteer with event info
+  const assignments = await db
+    .select({ assignment: scheduleAssignments, schedule: schedules, event: events })
+    .from(scheduleAssignments)
+    .leftJoin(schedules, eq(scheduleAssignments.scheduleId, schedules.id))
+    .leftJoin(events, eq(schedules.eventId, events.id))
+    .where(eq(scheduleAssignments.volunteerId, volunteerId))
+    .orderBy(desc(schedules.date));
+
+  // For each, check if there's a checkin
+  const withCheckin = await Promise.all(assignments.map(async (a) => {
+    if (!a.event?.id) return { ...a, checkin: null, satisfaction: null };
+    const checkinRows = await db
+      .select()
+      .from(checkins)
+      .where(and(eq(checkins.volunteerId, volunteerId), eq(checkins.eventId, a.event.id)))
+      .limit(1);
+    const satisfactionRows = await db
+      .select()
+      .from(satisfactionRatings)
+      .where(and(eq(satisfactionRatings.volunteerId, volunteerId), eq(satisfactionRatings.eventId, a.event.id)))
+      .limit(1);
+    return {
+      ...a,
+      checkin: checkinRows[0] ?? null,
+      satisfaction: satisfactionRows[0] ?? null,
+    };
+  }));
+  return withCheckin;
+}
+
+// ─── Birthday Volunteers ──────────────────────────────────────────────────────
+export async function getBirthdayVolunteers() {
+  const db = await getDb();
+  if (!db) return [];
+  // Get volunteers with birthday in the next 7 days
+  const rows = await db
+    .select()
+    .from(volunteers)
+    .where(
+      and(
+        sql`birthdate IS NOT NULL`,
+        sql`DAYOFYEAR(birthdate) BETWEEN DAYOFYEAR(CURDATE()) AND DAYOFYEAR(CURDATE()) + 7`
+      )
+    )
+    .orderBy(sql`DAYOFYEAR(birthdate)`);
+  return rows;
 }

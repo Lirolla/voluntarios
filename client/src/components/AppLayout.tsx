@@ -17,10 +17,14 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   Network,
+  QrCode,
   Settings,
   Shield,
+  Star,
+  Upload,
   User,
   Users,
 } from "lucide-react";
@@ -46,12 +50,17 @@ const navItems: NavItem[] = [
   { label: "Monitor ao Vivo", href: "/live-monitor", icon: Activity, adminOnly: true },
   { label: "Notificações", href: "/notifications", icon: Bell },
   { label: "Relatórios", href: "/reports", icon: BookOpen, adminOnly: true },
+  { label: "Mural de Avisos", href: "/bulletin", icon: Megaphone, adminOnly: true },
+  { label: "Importar CSV", href: "/import-volunteers", icon: Upload, adminOnly: true },
 ];
 
 const volunteerNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Próximo Serviço", href: "/next-service", icon: CalendarDays },
   { label: "Minha Escala", href: "/my-schedule", icon: ClipboardList },
   { label: "Check-in", href: "/checkins", icon: CalendarCheck },
+  { label: "Mural de Avisos", href: "/bulletin", icon: Megaphone },
+  { label: "Meu Histórico", href: "/my-history", icon: BookOpen },
   { label: "Notificações", href: "/notifications", icon: Bell },
   { label: "Meu Perfil", href: "/my-profile", icon: User },
 ];

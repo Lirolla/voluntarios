@@ -11,6 +11,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  Star,
   Users,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -66,6 +67,7 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = trpc.reports.dashboard.useQuery(undefined, { enabled: !!user });
   const { data: events, isLoading: eventsLoading } = trpc.events.list.useQuery({ status: "upcoming" }, { enabled: !!user });
   const { data: notifications } = trpc.notifications.list.useQuery(undefined, { enabled: !!user });
+  const { data: birthdays } = trpc.birthdays.upcoming.useQuery(undefined, { enabled: !!user && user.role === 'admin' });
 
   const isAdmin = user?.role === "admin";
   const unreadNotifs = notifications?.filter((n) => !n.read) ?? [];
@@ -182,6 +184,38 @@ export default function Dashboard() {
             </Card>
           </div>
 
+          {/* Birthdays */}
+          {isAdmin && birthdays && birthdays.length > 0 && (
+            <div className="lg:col-span-3 mt-2">
+              <Card className="card-premium border-amber-100">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-500" />
+                    Aniversariantes da Semana
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3">
+                    {(birthdays as any[]).map((v) => (
+                      <div key={v.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-100">
+                        <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-sm">
+                          {v.name?.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{v.name}</p>
+                          {v.birthdate && (
+                            <p className="text-xs text-amber-600">
+                              {format(new Date(v.birthdate), "dd/MM", { locale: ptBR })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {/* Notifications */}
           <div>
             <Card className="card-premium">

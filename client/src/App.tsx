@@ -18,6 +18,12 @@ import Reports from "./pages/Reports";
 import MyProfile from "./pages/MyProfile";
 import MySchedule from "./pages/MySchedule";
 import LiveMonitor from "./pages/LiveMonitor";
+import NextService from "./pages/NextService";
+import Bulletin from "./pages/Bulletin";
+import MyHistory from "./pages/MyHistory";
+import QRCheckin from "./pages/QRCheckin";
+import ImportVolunteers from "./pages/ImportVolunteers";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 function Router() {
   return (
@@ -36,6 +42,11 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/my-profile" component={MyProfile} />
       <Route path="/my-schedule" component={MySchedule} />
+      <Route path="/next-service" component={NextService} />
+      <Route path="/bulletin" component={Bulletin} />
+      <Route path="/my-history" component={MyHistory} />
+      <Route path="/qr-checkin" component={QRCheckin} />
+      <Route path="/import-volunteers" component={ImportVolunteers} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -49,6 +60,7 @@ function App() {
         <TooltipProvider>
           <Toaster richColors position="top-right" />
           <Router />
+          <PWAInstallBanner />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

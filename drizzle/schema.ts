@@ -154,3 +154,26 @@ export const notifications = mysqlTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
+
+// ─── Bulletin Posts (Mural de Avisos) ─────────────────────────────────────────
+export const bulletinPosts = mysqlTable("bulletin_posts", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 200 }).notNull(),
+  content: text("content").notNull(),
+  type: mysqlEnum("type", ["general", "urgent", "event", "pastoral"]).default("general").notNull(),
+  audience: mysqlEnum("audience", ["all", "admin"]).default("all").notNull(),
+  authorId: int("authorId").references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type BulletinPost = typeof bulletinPosts.$inferSelect;
+export type InsertBulletinPost = typeof bulletinPosts.$inferInsert;
+
+// ─── Event QR Tokens (QR Code de Check-in) ───────────────────────────────────
+export const eventQrTokens = mysqlTable("event_qr_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: int("eventId").references(() => events.id).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: datetime("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type EventQrToken = typeof eventQrTokens.$inferSelect;

@@ -51,7 +51,17 @@ import {
   updateMinistry,
   updateNetwork,
   updateVolunteer,
+  getBulletinPosts,
+  createBulletinPost,
+  deleteBulletinPost,
+  createQrToken,
+  getQrTokenByToken,
+  getQrTokenByEvent,
+  getVolunteerPersonalHistory,
+  getBirthdayVolunteers,
 } from "./db";
+import { nanoid } from "nanoid";
+import QRCode from "qrcode";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -377,13 +387,97 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── Reports ────────────────────────────────────────────────────────────────
+    // ─── Reports ────────────────────────────────────────────────────────────────
   reports: router({
     dashboard: protectedProcedure.query(() => getDashboardStats()),
     presence: adminProcedure.query(() => getPresenceReport()),
     byNetwork: adminProcedure.query(() => getNetworkReport()),
     byMinistry: adminProcedure.query(() => getMinistryReport()),
   }),
+  // ─── Bulletin ────────────────────────────────────────────────────────────────
+  bulletin: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const posts = await getBulletinPosts();
+      if (ctx.user.role === 'admin') return posts;
+      return posts.filter((p: any) => p.audience === 'all');
+    }),
+    create: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        content: z.string().min(1),
+        type: z.enum(['general', 'urgent', 'event', 'pastoral']).optional(),
+        audience: z.enum(['all', 'admin']).optional(),
+      }))
+      .mutation(({ input, ctx }) =>
+        createBulletinPost({
+          title: input.title,
+          content: input.content,
+          type: input.type ?? 'general',
+          audience: input.audience ?? 'all',
+          authorId: ctx.user.id,
+        })
+      ),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(({ input }) => deleteBulletinPost(input.id)),
+  }),
+  // ─── QR Code ─────────────────────────────────────────────────────────────────
+  qrcode: router({
+    generate: adminProcedure
+      .input(z.object({ eventId: z.number() }))
+      .mutation(async ({ input }) => {
+        const token = nanoid(32);
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await createQrToken(input.eventId, token, expiresAt);
+        const qrDataUrl = await QRCode.toDataURL(`/checkins?qr=${token}`, { width: 300, margin: 2 });
+        return { token, qrDataUrl, expiresAt };
+      }),
+    get: adminProcedure
+      .input(z.object({ eventId: z.number() }))
+      .query(async ({ input }) => {
+        const existing = await getQrTokenByEvent(input.eventId);
+        if (!existing) return null;
+        const qrDataUrl = await QRCode.toDataURL(`/checkins?qr=${existing.token}`, { width: 300, margin: 2 });
+        return { ...existing, qrDataUrl };
+      }),
+    checkinByQr: protectedProcedure
+      .input(z.object({
+        token: z.string(),
+        lat: z.string().optional(),
+        lng: z.string().optional(),
+        address: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const qr = await getQrTokenByToken(input.token);
+        if (!qr) throw new TRPCError({ code: 'NOT_FOUND', message: 'QR Code inválido.' });
+        if (qr.qr.expiresAt && new Date(qr.qr.expiresAt) < new Date()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'QR Code expirado.' });
+        }
+        const vol = await getVolunteerByUserId(ctx.user.id);
+        if (!vol) throw new TRPCError({ code: 'NOT_FOUND', message: 'Voluntário não encontrado.' });
+        const existing = await getActiveCheckin(vol.volunteer.id, qr.qr.eventId);
+        if (existing) throw new TRPCError({ code: 'CONFLICT', message: 'Você já fez check-in neste evento.' });
+        await createCheckinWithGPS({
+          volunteerId: vol.volunteer.id,
+          eventId: qr.qr.eventId,
+          checkinLat: input.lat,
+          checkinLng: input.lng,
+          checkinAddress: input.address,
+        });
+        return { success: true, event: qr.event };
+      }),
+  }),
+  // ─── My History ──────────────────────────────────────────────────────────────
+  myHistory: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const vol = await getVolunteerByUserId(ctx.user.id);
+      if (!vol) return [];
+      return getVolunteerPersonalHistory(vol.volunteer.id);
+    }),
+  }),
+  // ─── Birthdays ───────────────────────────────────────────────────────────────
+  birthdays: router({
+    upcoming: adminProcedure.query(() => getBirthdayVolunteers()),
+  }),
 });
-
 export type AppRouter = typeof appRouter;
