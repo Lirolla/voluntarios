@@ -155,17 +155,18 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(
 export default defineConfig({
   plugins,
   resolve: {
+    preserveSymlinks: false,
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
-      "react": path.resolve(import.meta.dirname, "node_modules", "react"),
-      "react-dom": path.resolve(import.meta.dirname, "node_modules", "react-dom"),
+      "react": fs.realpathSync(path.resolve(import.meta.dirname, "node_modules", "react")),
+      "react-dom": fs.realpathSync(path.resolve(import.meta.dirname, "node_modules", "react-dom")),
     },
-    dedupe: ["react", "react-dom", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
+    dedupe: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
+    include: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query", "@trpc/client", "@trpc/react-query"],
   },
   envDir: path.resolve(import.meta.dirname),
   root: path.resolve(import.meta.dirname, "client"),
